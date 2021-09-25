@@ -1,0 +1,107 @@
+{
+  "scenarioName": "test client",
+  "steps": [
+    {
+      "name": "clear before test",
+      "url": "com.sample.utils.PostgreSqlExecutor",
+      "method": "updateSql",
+      "request": {
+        "sql": "DELETE FROM client WHERE name = :name",
+        "params": {
+          "name": "Jeff"
+        }
+      },
+      "assertions": {
+      }
+    },
+    {
+      "name": "check before test",
+      "url": "com.sample.utils.PostgreSqlExecutor",
+      "method": "executeSimpleSql",
+      "request": {
+        "sql": "SELECT count(*) FROM client WHERE name = :name",
+        "params": {
+          "name": "Jeff"
+        }
+      },
+      "assertions": {
+        "rows": [
+          {
+            "count": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "send to message via Kafka",
+      "url": "kafka-topic:credit_rating",
+      "operation": "produce",
+      "request": {
+        "recordType": "JSON",
+        "records": [
+          {
+            "key": "${RANDOM.NUMBER}",
+            "value": {
+              "name": "Jeff",
+              "creditRating": 800
+            }
+          }
+        ]
+      },
+      "assertions": {
+        "status": "Ok"
+      }
+    },
+    {
+      "name": "delay in seconds",
+      "url": "com.sample.utils.Delay",
+      "operation": "seconds",
+      "request": 5,
+      "assertions": {
+      }
+    },
+    {
+      "name": "check result in DB",
+      "url": "com.sample.utils.PostgreSqlExecutor",
+      "method": "executeSimpleSql",
+      "request": {
+        "sql": "SELECT * FROM client WHERE name = :name",
+        "params": {
+          "name": "Jeff"
+        }
+      },
+      "assertions": {
+        "rows": [
+          {
+            "name": "Jeff",
+            "credit_rating": 800
+          }
+        ]
+      }
+    },
+    {
+      "name": "check result via Kafka",
+      "url": "kafka-topic:credit_worthy",
+      "operation": "consume",
+      "request": {
+        "consumerLocalConfigs": {
+          "recordType": "JSON",
+          "commitSync": true,
+          "showRecordsConsumed": true,
+          "maxNoOfRetryPollsOrTimeouts": 10
+        }
+      },
+      "assertions": {
+        "size": 1,
+        "records": [
+          {
+            "value": {
+              "name": "Jeff",
+              "creditWorthy": true
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
